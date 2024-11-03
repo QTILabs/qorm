@@ -2,7 +2,9 @@ name: "Test Suite"
 on:
   push:
   pull_request:
-
+# Make sure CI fails on all warnings, including Clippy lints
+env:
+  RUSTFLAGS: "-Dwarnings"
 jobs:
   test:
     name: cargo test
