@@ -1,12 +1,13 @@
-use crate::table::Table;
+use crate::{bind::Bind, table::Table};
 
 pub struct Builder {
     pub table_name: Table,
     select_query: Option<Vec<String>>,
-    where_and_query: Option<Vec<String>>,
-    where_or_query: Option<Vec<Vec<String>>>,
+    where_and_query_raw: Option<Vec<String>>,
+    where_or_query_raw: Option<Vec<Vec<String>>>,
     order_by_query: Option<Vec<String>>,
     group_by_query: Option<Vec<String>>,
+    bind_raws: Vec<Bind>,
 }
 
 impl Builder {
@@ -17,10 +18,11 @@ impl Builder {
                 alias: alias.map(|x| x.to_string()),
             },
             select_query: None,
-            where_and_query: None,
-            where_or_query: None,
+            where_and_query_raw: None,
+            where_or_query_raw: None,
             order_by_query: None,
             group_by_query: None,
+            bind_raws: vec![],
         }
     }
 
@@ -32,7 +34,7 @@ impl Builder {
     }
 
     fn parse_from(&self, sql: &mut String) {
-        if self.where_and_query.is_some() || self.where_or_query.is_some() {
+        if self.where_and_query_raw.is_some() || self.where_or_query_raw.is_some() {
             sql.push_str(format!(" FROM {} {} ", self.table_name.name, self.get_alias()).as_str());
         } else {
             sql.push_str(format!(" FROM {} {}", self.table_name.name, self.get_alias()).as_str());
@@ -64,20 +66,23 @@ impl Builder {
     }
 
     pub fn where_raw(&mut self, raw: &str) -> &mut Self {
-        if self.where_and_query.is_none() {
-            self.where_and_query = Some(vec![raw.to_string()]);
+        if self.where_and_query_raw.is_none() {
+            self.where_and_query_raw = Some(vec![raw.to_string()]);
         } else {
-            self.where_and_query.as_mut().unwrap().push(raw.to_string());
+            self.where_and_query_raw
+                .as_mut()
+                .unwrap()
+                .push(raw.to_string());
         }
         self
     }
 
     fn parse_where_raw(&self, sql: &mut String) {
-        if self.where_and_query.is_none() {
+        if self.where_and_query_raw.is_none() {
             return;
         }
-        for (idx, item) in self.where_and_query.clone().unwrap().iter().enumerate() {
-            if idx + 1 == self.where_and_query.clone().unwrap().len() {
+        for (idx, item) in self.where_and_query_raw.clone().unwrap().iter().enumerate() {
+            if idx + 1 == self.where_and_query_raw.clone().unwrap().len() {
                 sql.push_str(format!(" {}", item).as_str());
             } else {
                 sql.push_str(format!(" {} AND", item).as_str());
@@ -86,10 +91,10 @@ impl Builder {
     }
 
     pub fn where_or_raw(&mut self, raw: Vec<&str>) -> &mut Self {
-        if self.where_or_query.is_none() {
-            self.where_or_query = Some(vec![raw.iter().map(|f| f.to_string()).collect()]);
+        if self.where_or_query_raw.is_none() {
+            self.where_or_query_raw = Some(vec![raw.iter().map(|f| f.to_string()).collect()]);
         } else {
-            self.where_or_query
+            self.where_or_query_raw
                 .as_mut()
                 .unwrap()
                 .push(raw.iter().map(|f| f.to_string()).collect());
@@ -98,11 +103,11 @@ impl Builder {
     }
 
     fn parse_where_or_raw(&self, sql: &mut String) {
-        if self.where_or_query.is_none() {
+        if self.where_or_query_raw.is_none() {
             return;
         }
-        for or_vec in self.where_or_query.clone().unwrap().iter() {
-            if self.where_and_query.is_some() {
+        for or_vec in self.where_or_query_raw.clone().unwrap().iter() {
+            if self.where_and_query_raw.is_some() {
                 sql.push_str(" AND (");
             } else {
                 sql.push_str(" (");
@@ -171,12 +176,17 @@ impl Builder {
         }
     }
 
+    pub fn bind_raw(&mut self, raw: Bind) -> &mut Self {
+        self.bind_raws.push(raw);
+        self
+    }
+
     pub fn to_sql(&self) -> String {
         let mut sql = "".to_string();
         self.parse_select_raw(&mut sql);
         self.parse_from(&mut sql);
         // Where
-        if self.where_and_query.is_some() || self.where_or_query.is_some() {
+        if self.where_and_query_raw.is_some() || self.where_or_query_raw.is_some() {
             sql.push_str("WHERE");
         }
         // And
@@ -189,5 +199,9 @@ impl Builder {
         self.parse_group_by_raw(&mut sql);
 
         sql
+    }
+
+    pub fn to_sql_with_bind(&self) -> (String, Vec<Bind>) {
+        (self.to_sql(), self.bind_raws.to_vec())
     }
 }

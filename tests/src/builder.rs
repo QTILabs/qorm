@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use qorm::builder::Builder;
+    use qorm::{Bind, Builder};
 
     #[test]
     fn init_builder() {
@@ -47,6 +47,31 @@ mod tests {
             builder.to_sql(),
             r#"SELECT * FROM user user WHERE user.id = 1 AND user.username = "Foo""#
         );
+    }
+
+    #[test]
+    fn single_where_bind_query() {
+        let mut builder = Builder::new("user", None);
+        builder.where_raw("user.id = ?");
+        builder.bind_raw(Bind::Int(1));
+        let (sql, binds) = builder.to_sql_with_bind();
+        assert_eq!(sql, "SELECT * FROM user user WHERE user.id = ?");
+        assert_eq!(binds, vec![Bind::Int(1)]);
+    }
+
+    #[test]
+    fn multiple_where_bind_query() {
+        let mut builder = Builder::new("user", None);
+        builder.where_raw("user.id = ?");
+        builder.bind_raw(Bind::Int(1));
+        builder.where_raw(r#"user.username = ?"#);
+        builder.bind_raw(Bind::String("Foo".to_string()));
+        let (sql, binds) = builder.to_sql_with_bind();
+        assert_eq!(
+            sql,
+            r#"SELECT * FROM user user WHERE user.id = ? AND user.username = ?"#
+        );
+        assert_eq!(binds, vec![Bind::Int(1), Bind::String("Foo".to_string())]);
     }
 
     #[test]
