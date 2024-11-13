@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn single_order_by_query() {
         let mut builder = Select::new("user", None, None);
-        builder.order_by_raw(vec!["user.id ASC"]);
+        builder.order_by(vec!["user.id ASC"]);
         assert_eq!(
             builder.to_sql(),
             r#"SELECT * FROM user user ORDER BY user.id ASC"#
@@ -276,11 +276,32 @@ mod tests {
     #[test]
     fn multiple_order_by_query() {
         let mut builder = Select::new("user", None, None);
-        builder.order_by_raw(vec!["user.id ASC"]);
-        builder.order_by_raw(vec!["user.username DESC", "user.profile ASC"]);
+        builder.order_by(vec!["user.id ASC"]);
+        builder.order_by(vec!["user.username DESC", "user.profile ASC"]);
         assert_eq!(
             builder.to_sql(),
             r#"SELECT * FROM user user ORDER BY user.id ASC, user.username DESC, user.profile ASC"#
+        );
+    }
+
+    #[test]
+    fn single_group_by_query() {
+        let mut builder = Select::new("user", None, None);
+        builder.group_by(vec!["user.id"]);
+        assert_eq!(
+            builder.to_sql(),
+            r#"SELECT * FROM user user GROUP BY user.id"#
+        );
+    }
+
+    #[test]
+    fn multiple_group_by_query() {
+        let mut builder = Select::new("user", None, None);
+        builder.group_by(vec!["user.id"]);
+        builder.group_by(vec!["user.username", "user.profile"]);
+        assert_eq!(
+            builder.to_sql(),
+            r#"SELECT * FROM user user GROUP BY user.id, user.username, user.profile"#
         );
     }
 
@@ -297,8 +318,8 @@ mod tests {
         builder.where_raw("user.id = 1");
         builder.where_or_raw(vec!["user.id = 1", "user.is_active = true"]);
         builder.where_raw("user.is_active = true");
-        builder.order_by_raw(vec!["user.id ASC"]);
-        builder.order_by_raw(vec!["user.username DESC", "user.profile ASC"]);
+        builder.order_by(vec!["user.id ASC"]);
+        builder.order_by(vec!["user.username DESC", "user.profile ASC"]);
         assert_eq!(
             builder.to_sql(),
             r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role on role.id = user.role_id JOIN location on location.id = user.location_id WHERE user.username = "Foo" AND user.id = 1 AND user.is_active = true AND ( user.id = 1 OR user.is_active = true) ORDER BY user.id ASC, user.username DESC, user.profile ASC"#
@@ -333,12 +354,12 @@ mod tests {
             operator: "=",
             value: Bind::Bool(true),
         }]);
-        // builder.order_by_raw(vec!["user.id ASC"]);
-        // builder.order_by_raw(vec!["user.username DESC", "user.profile ASC"]);
+        builder.order_by(vec!["user.id ASC"]);
+        builder.group_by(vec!["user.id"]);
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(
             sql,
-            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?)"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id"#
         );
         let answer = vec![
             Bind::String("Foo".to_string()),

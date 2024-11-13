@@ -314,7 +314,7 @@ impl Select {
         }
     }
 
-    pub fn order_by_raw(&mut self, raw: Vec<&str>) -> &mut Self {
+    pub fn order_by(&mut self, raw: Vec<&str>) -> &mut Self {
         if self.order_by_query.is_none() {
             self.order_by_query = Some(raw.iter().map(|f| f.to_string()).collect())
         } else {
@@ -326,7 +326,7 @@ impl Select {
         self
     }
 
-    fn parse_order_by_raw(&self, sql: &mut String) {
+    fn parse_order_by(&self, sql: &mut String) {
         if self.order_by_query.clone().is_none() {
             return;
         }
@@ -340,7 +340,7 @@ impl Select {
         }
     }
 
-    pub fn group_by_raw(&mut self, raw: Vec<&str>) -> &mut Self {
+    pub fn group_by(&mut self, raw: Vec<&str>) -> &mut Self {
         if self.group_by_query.is_none() {
             self.group_by_query = Some(raw.iter().map(|f| f.to_string()).collect())
         } else {
@@ -352,7 +352,7 @@ impl Select {
         self
     }
 
-    fn parse_group_by_raw(&self, sql: &mut String) {
+    fn parse_group_by(&self, sql: &mut String) {
         if self.group_by_query.clone().is_none() {
             return;
         }
@@ -377,6 +377,7 @@ impl Select {
     }
 
     pub fn to_sql(&mut self) -> String {
+        self.binds = vec![];
         // Select
         let mut sql = "SELECT".to_string();
         if self.select.is_none() {
@@ -413,9 +414,9 @@ impl Select {
         self.parse_where_or(&mut sql);
         self.parse_where_or_raw(&mut sql);
         // Order By
-        self.parse_order_by_raw(&mut sql);
+        self.parse_order_by(&mut sql);
         // Group By
-        self.parse_group_by_raw(&mut sql);
+        self.parse_group_by(&mut sql);
 
         sql
     }
@@ -427,7 +428,6 @@ impl Select {
         let mut bind_raw = self.bind_raws.clone();
         all_bind.append(&mut binds);
         all_bind.append(&mut bind_raw);
-        self.binds = vec![];
         (sql, all_bind)
     }
 }
