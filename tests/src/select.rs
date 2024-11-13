@@ -17,41 +17,51 @@ mod tests {
     #[test]
     fn single_select_query() {
         let mut builder = Select::new("user", None, None);
-        builder.select("user", "id");
-        assert_eq!(builder.to_sql(), "SELECT user.id FROM user user");
-    }
-
-    #[test]
-    fn multiple_select_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.select("user", "id");
-        builder.select("user", "name");
-        assert_eq!(builder.to_sql(), "SELECT user.id, user.name FROM user user");
-    }
-
-    #[test]
-    fn single_select_raw_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.select_raw("user.id");
+        builder.select("user.id");
         assert_eq!(builder.to_sql(), "SELECT user.id FROM user user");
     }
 
     #[test]
     fn multiple_select_raw_query() {
         let mut builder = Select::new("user", None, None);
-        builder.select_raw("user.id").select_raw("user.name");
+        builder.select("user.id").select("user.name");
         assert_eq!(builder.to_sql(), "SELECT user.id, user.name FROM user user");
     }
 
     #[test]
-    fn combine_select() {
+    fn single_join() {
         let mut builder = Select::new("user", None, None);
-        builder.select("user", "id").select("user", "name");
-        builder.select_raw("user.is_active");
+        builder.join("role", "user.role_id = role.id");
         assert_eq!(
             builder.to_sql(),
-            "SELECT user.id, user.name, user.is_active FROM user user"
+            "SELECT * FROM user user JOIN role ON user.role_id = role.id"
         );
+    }
+
+    #[test]
+    fn multiple_join() {
+        let mut builder = Select::new("user", None, None);
+        builder.join("role", "user.role_id = role.id");
+        builder.join("location", "user.location_id = location.id");
+        assert_eq!(builder.to_sql(), "SELECT * FROM user user JOIN role ON user.role_id = role.id JOIN location ON user.location_id = location.id");
+    }
+
+    #[test]
+    fn single_join_raw() {
+        let mut builder = Select::new("user", None, None);
+        builder.join_raw("role on user.role_id = role.id");
+        assert_eq!(
+            builder.to_sql(),
+            "SELECT * FROM user user JOIN role on user.role_id = role.id"
+        );
+    }
+
+    #[test]
+    fn multiple_join_raw() {
+        let mut builder = Select::new("user", None, None);
+        builder.join_raw("role on user.role_id = role.id");
+        builder.join_raw("location on user.location_id = location.id");
+        assert_eq!(builder.to_sql(), "SELECT * FROM user user JOIN role on user.role_id = role.id JOIN location on user.location_id = location.id");
     }
 
     #[test]
@@ -278,9 +288,11 @@ mod tests {
     fn full_query_raw() {
         let mut builder = Select::new("user", None, None);
         builder
-            .select_raw("user.id")
-            .select_raw("user.name")
-            .select_raw("user.is_done");
+            .select("user.id")
+            .select("user.name")
+            .select("user.is_done");
+        builder.join_raw("role on role.id = user.role_id");
+        builder.join_raw("location on location.id = user.location_id");
         builder.where_raw(r#"user.username = "Foo""#);
         builder.where_raw("user.id = 1");
         builder.where_or_raw(vec!["user.id = 1", "user.is_active = true"]);
@@ -289,7 +301,7 @@ mod tests {
         builder.order_by_raw(vec!["user.username DESC", "user.profile ASC"]);
         assert_eq!(
             builder.to_sql(),
-            r#"SELECT user.id, user.name, user.is_done FROM user user WHERE user.username = "Foo" AND user.id = 1 AND user.is_active = true AND ( user.id = 1 OR user.is_active = true) ORDER BY user.id ASC, user.username DESC, user.profile ASC"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role on role.id = user.role_id JOIN location on location.id = user.location_id WHERE user.username = "Foo" AND user.id = 1 AND user.is_active = true AND ( user.id = 1 OR user.is_active = true) ORDER BY user.id ASC, user.username DESC, user.profile ASC"#
         );
     }
 
@@ -297,9 +309,11 @@ mod tests {
     fn full_query() {
         let mut builder = Select::new("user", None, None);
         builder
-            .select("user", "id")
-            .select("user", "name")
-            .select("user", "is_done");
+            .select("user.id")
+            .select("user.name")
+            .select("user.is_done");
+        builder.join("role", "role.id = user.role_id");
+        builder.join("location", "location.id = user.location_id");
         builder.wheres("user.username", "=", Bind::String("Foo".to_string()));
         builder.wheres("user.id", "=", Bind::Int(1));
         builder.where_or(vec![
@@ -324,7 +338,7 @@ mod tests {
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(
             sql,
-            r#"SELECT user.id, user.name, user.is_done FROM user user WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?)"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?)"#
         );
         let answer = vec![
             Bind::String("Foo".to_string()),

@@ -11,11 +11,18 @@ struct WhereInternal {
     pub value: Bind,
 }
 
+#[derive(Clone, Debug)]
+struct JoinInternal {
+    pub table_name: String,
+    pub on: String,
+}
+
 pub struct Select {
     pub table_name: Table,
     config: SelectConfig,
-    select: Option<Vec<(String, String)>>,
-    select_raw: Option<Vec<String>>,
+    select: Option<Vec<String>>,
+    join: Option<Vec<JoinInternal>>,
+    join_raw: Option<Vec<String>>,
     where_and: Option<Vec<WhereInternal>>,
     where_and_raw: Option<Vec<String>>,
     where_or: Option<Vec<Vec<WhereInternal>>>,
@@ -44,7 +51,8 @@ impl Select {
             },
             config: config_select.clone(),
             select: None,
-            select_raw: None,
+            join: None,
+            join_raw: None,
             where_and: None,
             where_and_raw: None,
             where_or: None,
@@ -85,6 +93,8 @@ impl Select {
             || self.where_and.is_some()
             || self.where_or_raw.is_some()
             || self.where_or.is_some()
+            || self.join_raw.is_some()
+            || self.join.is_some()
         {
             sql.push_str(format!(" FROM {} {} ", self.table_name.name, self.get_alias()).as_str());
         } else {
@@ -92,14 +102,11 @@ impl Select {
         }
     }
 
-    pub fn select(&mut self, alias: &str, column: &str) -> &mut Self {
+    pub fn select(&mut self, raw: &str) -> &mut Self {
         if self.select.is_none() {
-            self.select = Some(vec![(alias.to_string(), column.to_string())]);
+            self.select = Some(vec![raw.to_string()]);
         } else {
-            self.select
-                .as_mut()
-                .unwrap()
-                .push((alias.to_string(), column.to_string()));
+            self.select.as_mut().unwrap().push(raw.to_string());
         }
         self
     }
@@ -108,34 +115,63 @@ impl Select {
         if self.select.is_none() {
             return;
         }
-        for (idx, (key, col)) in self.select.clone().unwrap().iter().enumerate() {
+
+        for (idx, item) in self.select.clone().unwrap().iter().enumerate() {
             if idx + 1 == self.select.clone().unwrap().len() {
-                sql.push_str(format!(" {}.{}", key, col).as_str());
+                sql.push_str(format!(" {}", item).as_str());
             } else {
-                sql.push_str(format!(" {}.{},", key, col).as_str());
+                sql.push_str(format!(" {},", item).as_str());
             }
         }
     }
 
-    pub fn select_raw(&mut self, raw: &str) -> &mut Self {
-        if self.select_raw.is_none() {
-            self.select_raw = Some(vec![raw.to_string()]);
+    pub fn join(&mut self, table_name: &str, on: &str) -> &mut Self {
+        if self.join.is_none() {
+            self.join = Some(vec![JoinInternal {
+                table_name: table_name.to_string(),
+                on: on.to_string(),
+            }]);
         } else {
-            self.select_raw.as_mut().unwrap().push(raw.to_string());
+            self.join.as_mut().unwrap().push(JoinInternal {
+                table_name: table_name.to_string(),
+                on: on.to_string(),
+            });
         }
         self
     }
 
-    fn parse_select_raw(&self, sql: &mut String) {
-        if self.select_raw.is_none() {
+    fn parse_join(&self, sql: &mut String) {
+        if self.join.is_none() {
             return;
         }
 
-        for (idx, item) in self.select_raw.clone().unwrap().iter().enumerate() {
-            if idx + 1 == self.select_raw.clone().unwrap().len() {
-                sql.push_str(format!(" {}", item).as_str());
+        for (idx, item) in self.join.clone().unwrap().iter().enumerate() {
+            if idx == 0 {
+                sql.push_str(format!("JOIN {} ON {}", item.table_name, item.on).as_str());
             } else {
-                sql.push_str(format!(" {},", item).as_str());
+                sql.push_str(format!(" JOIN {} ON {}", item.table_name, item.on).as_str());
+            }
+        }
+    }
+
+    pub fn join_raw(&mut self, raw: &str) -> &mut Self {
+        if self.join_raw.is_none() {
+            self.join_raw = Some(vec![raw.to_string()]);
+        } else {
+            self.join_raw.as_mut().unwrap().push(raw.to_string());
+        }
+        self
+    }
+
+    fn parse_join_raw(&self, sql: &mut String) {
+        if self.join_raw.is_none() {
+            return;
+        }
+        for (idx, item) in self.join_raw.clone().unwrap().iter().enumerate() {
+            if idx == 0 {
+                sql.push_str(format!("JOIN {}", item).as_str());
+            } else {
+                sql.push_str(format!(" JOIN {}", item).as_str());
             }
         }
     }
@@ -361,18 +397,24 @@ impl Select {
     pub fn to_sql(&mut self) -> String {
         // Select
         let mut sql = "SELECT".to_string();
-        if self.select.is_none() && self.select_raw.is_none() {
+        if self.select.is_none() {
             sql.push_str(" *");
         }
+        self.parse_select(&mut sql);
 
-        if self.select.is_some() || self.select_raw.is_some() {
-            self.parse_select(&mut sql);
-            if self.select.is_some() && self.select_raw.is_some() {
-                sql.push(',');
-            }
-            self.parse_select_raw(&mut sql);
-        }
         self.parse_from(&mut sql);
+
+        // Join
+        self.parse_join(&mut sql);
+        self.parse_join_raw(&mut sql);
+        if (self.where_and_raw.is_some()
+            || self.where_and.is_some()
+            || self.where_or_raw.is_some()
+            || self.where_or.is_some())
+            && (self.join_raw.is_some() || self.join.is_some())
+        {
+            sql.push(' ');
+        }
 
         // Where
         if self.where_and_raw.is_some()
