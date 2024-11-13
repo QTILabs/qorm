@@ -70,7 +70,7 @@ mod tests {
         builder.wheres("user.id", "=", Bind::Int(1));
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(sql, "SELECT * FROM user user WHERE user.id = ?");
-        let answers = vec![Bind::Int(1)];
+        let answers = [Bind::Int(1)];
         assert_eq!(binds.len(), 1);
         for idx in 0..binds.len() {
             assert_eq!(binds[idx], answers[idx]);
@@ -94,7 +94,7 @@ mod tests {
             sql,
             r#"SELECT * FROM user user WHERE user.id = $1 AND user.username = $2"#
         );
-        let answers = vec![Bind::Int(1), Bind::String("Foo".to_string())];
+        let answers = [Bind::Int(1), Bind::String("Foo".to_string())];
         assert_eq!(binds.len(), 2);
         for idx in 0..binds.len() {
             assert_eq!(binds[idx], answers[idx]);
@@ -199,7 +199,7 @@ mod tests {
             sql,
             r#"SELECT * FROM user user WHERE ( user.id = ? OR user.is_active = ?)"#
         );
-        let answers = vec![Bind::Int(1), Bind::Bool(true)];
+        let answers = [Bind::Int(1), Bind::Bool(true)];
         assert_eq!(binds.len(), answers.len());
         for idx in 0..binds.len() {
             assert_eq!(binds[idx], answers[idx]);
@@ -231,7 +231,7 @@ mod tests {
             sql,
             r#"SELECT * FROM user user WHERE ( user.username = ?) AND ( user.id = ? OR user.is_active = ?)"#
         );
-        let answers = vec![
+        let answers = [
             Bind::String("Foo".to_string()),
             Bind::Int(1),
             Bind::Bool(true),
