@@ -361,7 +361,7 @@ mod tests {
             sql,
             r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id"#
         );
-        let answer = vec![
+        let answer = [
             Bind::String("Foo".to_string()),
             Bind::Int(1),
             Bind::Int(1),
