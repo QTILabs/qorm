@@ -89,17 +89,7 @@ impl Select {
     }
 
     fn parse_from(&self, sql: &mut String) {
-        if self.where_and_raw.is_some()
-            || self.where_and.is_some()
-            || self.where_or_raw.is_some()
-            || self.where_or.is_some()
-            || self.join_raw.is_some()
-            || self.join.is_some()
-        {
-            sql.push_str(format!(" FROM {} {} ", self.table_name.name, self.get_alias()).as_str());
-        } else {
-            sql.push_str(format!(" FROM {} {}", self.table_name.name, self.get_alias()).as_str());
-        }
+        sql.push_str(format!(" FROM {} {}", self.table_name.name, self.get_alias()).as_str());
     }
 
     pub fn select(&mut self, raw: &str) -> &mut Self {
@@ -145,12 +135,8 @@ impl Select {
             return;
         }
 
-        for (idx, item) in self.join.clone().unwrap().iter().enumerate() {
-            if idx == 0 {
-                sql.push_str(format!("JOIN {} ON {}", item.table_name, item.on).as_str());
-            } else {
-                sql.push_str(format!(" JOIN {} ON {}", item.table_name, item.on).as_str());
-            }
+        for item in self.join.clone().unwrap() {
+            sql.push_str(format!(" JOIN {} ON {}", item.table_name, item.on).as_str());
         }
     }
 
@@ -167,12 +153,8 @@ impl Select {
         if self.join_raw.is_none() {
             return;
         }
-        for (idx, item) in self.join_raw.clone().unwrap().iter().enumerate() {
-            if idx == 0 {
-                sql.push_str(format!("JOIN {}", item).as_str());
-            } else {
-                sql.push_str(format!(" JOIN {}", item).as_str());
-            }
+        for item in self.join_raw.clone().unwrap() {
+            sql.push_str(format!(" JOIN {}", item).as_str());
         }
     }
 
@@ -407,14 +389,6 @@ impl Select {
         // Join
         self.parse_join(&mut sql);
         self.parse_join_raw(&mut sql);
-        if (self.where_and_raw.is_some()
-            || self.where_and.is_some()
-            || self.where_or_raw.is_some()
-            || self.where_or.is_some())
-            && (self.join_raw.is_some() || self.join.is_some())
-        {
-            sql.push(' ');
-        }
 
         // Where
         if self.where_and_raw.is_some()
@@ -422,7 +396,7 @@ impl Select {
             || self.where_or_raw.is_some()
             || self.where_or.is_some()
         {
-            sql.push_str("WHERE");
+            sql.push_str(" WHERE");
         }
         // And
         self.parse_where(&mut sql);
