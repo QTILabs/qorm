@@ -23,10 +23,13 @@ mod tests {
             "INSERT INTO user (username,is_active,age) VALUES ($1,$2,$3)"
         );
         let answer = [
-            Bind::String("username".to_string()),
+            Bind::String("foo".to_string()),
             Bind::Bool(true),
             Bind::Int(12),
         ];
         assert_eq!(binds.len(), answer.len());
+        for idx in 0..binds.len() {
+            assert_eq!(binds[idx], answer[idx]);
+        }
     }
 }
