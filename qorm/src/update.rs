@@ -15,13 +15,10 @@ pub struct Update {
     pub table_name: String,
     config: UpdateConfig,
     binds: Vec<Bind>,
-    bind_raws: Vec<Bind>,
     bind_index: Option<i32>,
     set_values: Option<Vec<(String, Bind)>>,
     where_and: Option<Vec<WhereInternal>>,
-    where_and_raw: Option<Vec<String>>,
     where_or: Option<Vec<Vec<WhereInternal>>>,
-    where_or_raw: Option<Vec<Vec<String>>>,
 }
 
 impl Update {
@@ -39,11 +36,8 @@ impl Update {
             config: config_select.clone(),
             set_values: None,
             where_and: None,
-            where_and_raw: None,
             where_or: None,
-            where_or_raw: None,
             binds: vec![],
-            bind_raws: vec![],
             bind_index: match bind_index {
                 true => Some(config_select.start.unwrap()),
                 false => None,
@@ -134,28 +128,6 @@ impl Update {
         }
     }
 
-    pub fn where_raw(&mut self, raw: &str) -> &mut Self {
-        if self.where_and_raw.is_none() {
-            self.where_and_raw = Some(vec![raw.to_string()]);
-        } else {
-            self.where_and_raw.as_mut().unwrap().push(raw.to_string());
-        }
-        self
-    }
-
-    fn parse_where_raw(&self, sql: &mut String) {
-        if self.where_and_raw.is_none() {
-            return;
-        }
-        for (idx, item) in self.where_and_raw.clone().unwrap().iter().enumerate() {
-            if idx + 1 == self.where_and_raw.clone().unwrap().len() {
-                sql.push_str(format!(" {}", item).as_str());
-            } else {
-                sql.push_str(format!(" {} AND", item).as_str());
-            }
-        }
-    }
-
     pub fn where_or(&mut self, wheres: Vec<Or>) -> &mut Self {
         if self.where_or.is_none() {
             self.where_or = Some(vec![wheres
@@ -215,45 +187,6 @@ impl Update {
         }
     }
 
-    pub fn where_or_raw(&mut self, raw: Vec<&str>) -> &mut Self {
-        if self.where_or_raw.is_none() {
-            self.where_or_raw = Some(vec![raw.iter().map(|f| f.to_string()).collect()]);
-        } else {
-            self.where_or_raw
-                .as_mut()
-                .unwrap()
-                .push(raw.iter().map(|f| f.to_string()).collect());
-        }
-        self
-    }
-
-    fn parse_where_or_raw(&self, sql: &mut String) {
-        if self.where_or_raw.is_none() {
-            return;
-        }
-        for (idx, or_vec) in self.where_or_raw.clone().unwrap().iter().enumerate() {
-            if idx == 0 {
-                sql.push_str(" (");
-            } else {
-                sql.push_str(" AND (");
-            }
-
-            for (idx, item) in or_vec.iter().enumerate() {
-                if idx + 1 == or_vec.clone().len() {
-                    sql.push_str(format!(" {}", item).as_str());
-                } else {
-                    sql.push_str(format!(" {} OR", item).as_str());
-                }
-            }
-            sql.push(')');
-        }
-    }
-
-    pub fn bind_raw(&mut self, raw: Bind) -> &mut Self {
-        self.bind_raws.push(raw);
-        self
-    }
-
     pub fn to_sql(&mut self) -> String {
         self.binds = vec![];
         // Update
@@ -263,38 +196,23 @@ impl Update {
         self.parse_set(&mut sql);
 
         // Where
-        if self.where_and_raw.is_some()
-            || self.where_and.is_some()
-            || self.where_or_raw.is_some()
-            || self.where_or.is_some()
-        {
+        if self.where_and.is_some() || self.where_or.is_some() {
             sql.push_str(" WHERE");
         }
         // And
         self.parse_where(&mut sql);
-        if self.where_and.is_some() && self.where_and_raw.is_some() {
-            sql.push_str(" AND");
-        }
-        self.parse_where_raw(&mut sql);
+
         // Or
-        if (self.where_and_raw.is_some() || self.where_and.is_some())
-            && (self.where_or_raw.is_some() || self.where_or.is_some())
-        {
+        if self.where_and.is_some() && self.where_or.is_some() {
             sql.push_str(" AND");
         }
         self.parse_where_or(&mut sql);
-        self.parse_where_or_raw(&mut sql);
 
         sql
     }
 
     pub fn to_sql_with_bind(&mut self) -> (String, Vec<Bind>) {
         let sql = self.to_sql();
-        let mut all_bind: Vec<Bind> = vec![];
-        let mut binds = self.binds.clone();
-        let mut bind_raw = self.bind_raws.clone();
-        all_bind.append(&mut binds);
-        all_bind.append(&mut bind_raw);
-        (sql, all_bind)
+        (sql, self.binds.clone())
     }
 }
