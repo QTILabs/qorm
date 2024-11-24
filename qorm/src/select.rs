@@ -27,6 +27,8 @@ pub struct Select {
     where_or: Option<Vec<Vec<WhereInternal>>>,
     order_by_query: Option<Vec<String>>,
     group_by_query: Option<Vec<String>>,
+    limit: Option<i64>,
+    offset: Option<i64>,
     bind_index: Option<i32>,
     binds: Vec<Bind>,
 }
@@ -53,6 +55,8 @@ impl Select {
             where_or: None,
             order_by_query: None,
             group_by_query: None,
+            limit: None,
+            offset: None,
             bind_index: match bind_index {
                 true => Some(config_select.start.unwrap()),
                 false => None,
@@ -299,6 +303,30 @@ impl Select {
         }
     }
 
+    pub fn limit(&mut self, limit: i64) -> &mut Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    fn parse_limit(&self, sql: &mut String) {
+        if self.limit.is_none() {
+            return;
+        }
+        sql.push_str(format!(" LIMIT {}", self.limit.unwrap()).as_str());
+    }
+
+    pub fn offset(&mut self, offset: i64) -> &mut Self {
+        self.offset = Some(offset);
+        self
+    }
+
+    fn parse_offset(&self, sql: &mut String) {
+        if self.offset.is_none() {
+            return;
+        }
+        sql.push_str(format!(" OFFSET {}", self.offset.unwrap()).as_str());
+    }
+
     fn bind_push(&mut self, raw: Bind) -> &mut Self {
         self.binds.push(raw);
         self
@@ -334,7 +362,10 @@ impl Select {
         self.parse_order_by(&mut sql);
         // Group By
         self.parse_group_by(&mut sql);
-
+        // limit
+        self.parse_limit(&mut sql);
+        // offset
+        self.parse_offset(&mut sql);
         sql
     }
 
