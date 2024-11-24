@@ -31,37 +31,19 @@ mod tests {
     #[test]
     fn single_join() {
         let mut builder = Select::new("user", None, None);
-        builder.join("role", "user.role_id = role.id");
+        builder.join(Some("LEFT"), "role", "user.role_id = role.id");
         assert_eq!(
             builder.to_sql(),
-            "SELECT * FROM user user JOIN role ON user.role_id = role.id"
+            "SELECT * FROM user user LEFT JOIN role ON user.role_id = role.id"
         );
     }
 
     #[test]
     fn multiple_join() {
         let mut builder = Select::new("user", None, None);
-        builder.join("role", "user.role_id = role.id");
-        builder.join("location", "user.location_id = location.id");
-        assert_eq!(builder.to_sql(), "SELECT * FROM user user JOIN role ON user.role_id = role.id JOIN location ON user.location_id = location.id");
-    }
-
-    #[test]
-    fn single_join_raw() {
-        let mut builder = Select::new("user", None, None);
-        builder.join_raw("role on user.role_id = role.id");
-        assert_eq!(
-            builder.to_sql(),
-            "SELECT * FROM user user JOIN role on user.role_id = role.id"
-        );
-    }
-
-    #[test]
-    fn multiple_join_raw() {
-        let mut builder = Select::new("user", None, None);
-        builder.join_raw("role on user.role_id = role.id");
-        builder.join_raw("location on user.location_id = location.id");
-        assert_eq!(builder.to_sql(), "SELECT * FROM user user JOIN role on user.role_id = role.id JOIN location on user.location_id = location.id");
+        builder.join(None, "role", "user.role_id = role.id");
+        builder.join(Some("LEFT"), "location", "user.location_id = location.id");
+        assert_eq!(builder.to_sql(), "SELECT * FROM user user JOIN role ON user.role_id = role.id LEFT JOIN location ON user.location_id = location.id");
     }
 
     #[test]
@@ -99,84 +81,6 @@ mod tests {
         for idx in 0..binds.len() {
             assert_eq!(binds[idx], answers[idx]);
         }
-    }
-
-    #[test]
-    fn single_where_raw_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_raw("user.id = 1");
-        assert_eq!(
-            builder.to_sql(),
-            "SELECT * FROM user user WHERE user.id = 1"
-        );
-    }
-
-    #[test]
-    fn multiple_where_raw_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_raw("user.id = 1");
-        builder.where_raw(r#"user.username = "Foo""#);
-        assert_eq!(
-            builder.to_sql(),
-            r#"SELECT * FROM user user WHERE user.id = 1 AND user.username = "Foo""#
-        );
-    }
-
-    #[test]
-    fn single_where_bind_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_raw("user.id = ?");
-        builder.bind_raw(Bind::Int(1));
-        let (sql, binds) = builder.to_sql_with_bind();
-        assert_eq!(sql, "SELECT * FROM user user WHERE user.id = ?");
-        assert_eq!(binds, vec![Bind::Int(1)]);
-    }
-
-    #[test]
-    fn multiple_where_bind_query() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_raw("user.id = ?");
-        builder.bind_raw(Bind::Int(1));
-        builder.where_raw(r#"user.username = ?"#);
-        builder.bind_raw(Bind::String("Foo".to_string()));
-        let (sql, binds) = builder.to_sql_with_bind();
-        assert_eq!(
-            sql,
-            r#"SELECT * FROM user user WHERE user.id = ? AND user.username = ?"#
-        );
-        assert_eq!(binds, vec![Bind::Int(1), Bind::String("Foo".to_string())]);
-    }
-
-    #[test]
-    fn combine_where() {
-        let mut builder = Select::new(
-            "user",
-            None,
-            Some(SelectConfig {
-                placeholder: "$%d".to_string(),
-                start: Some(1),
-            }),
-        );
-        builder.wheres("user.id", "=", Bind::Int(1)).wheres(
-            "user.username",
-            "=",
-            Bind::String("Foo".to_string()),
-        );
-        builder.where_raw("user.is_active = ?");
-        builder.bind_raw(Bind::Bool(true));
-        let (sql, binds) = builder.to_sql_with_bind();
-        assert_eq!(
-            sql,
-            r#"SELECT * FROM user user WHERE user.id = $1 AND user.username = $2 AND user.is_active = ?"#
-        );
-        assert_eq!(
-            binds,
-            vec![
-                Bind::Int(1),
-                Bind::String("Foo".to_string()),
-                Bind::Bool(true)
-            ]
-        );
     }
 
     #[test]
@@ -243,27 +147,6 @@ mod tests {
     }
 
     #[test]
-    fn single_where_or_raw() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_or_raw(vec!["user.id = 1", "user.is_active = true"]);
-        assert_eq!(
-            builder.to_sql(),
-            r#"SELECT * FROM user user WHERE ( user.id = 1 OR user.is_active = true)"#
-        );
-    }
-
-    #[test]
-    fn multiple_where_or_raw() {
-        let mut builder = Select::new("user", None, None);
-        builder.where_raw(r#"user.username = "Foo""#);
-        builder.where_or_raw(vec!["user.id = 1", "user.is_active = true"]);
-        assert_eq!(
-            builder.to_sql(),
-            r#"SELECT * FROM user user WHERE user.username = "Foo" AND ( user.id = 1 OR user.is_active = true)"#
-        );
-    }
-
-    #[test]
     fn single_order_by_query() {
         let mut builder = Select::new("user", None, None);
         builder.order_by(vec!["user.id ASC"]);
@@ -306,35 +189,14 @@ mod tests {
     }
 
     #[test]
-    fn full_query_raw() {
-        let mut builder = Select::new("user", None, None);
-        builder
-            .select("user.id")
-            .select("user.name")
-            .select("user.is_done");
-        builder.join_raw("role on role.id = user.role_id");
-        builder.join_raw("location on location.id = user.location_id");
-        builder.where_raw(r#"user.username = "Foo""#);
-        builder.where_raw("user.id = 1");
-        builder.where_or_raw(vec!["user.id = 1", "user.is_active = true"]);
-        builder.where_raw("user.is_active = true");
-        builder.order_by(vec!["user.id ASC"]);
-        builder.order_by(vec!["user.username DESC", "user.profile ASC"]);
-        assert_eq!(
-            builder.to_sql(),
-            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role on role.id = user.role_id JOIN location on location.id = user.location_id WHERE user.username = "Foo" AND user.id = 1 AND user.is_active = true AND ( user.id = 1 OR user.is_active = true) ORDER BY user.id ASC, user.username DESC, user.profile ASC"#
-        );
-    }
-
-    #[test]
     fn full_query() {
         let mut builder = Select::new("user", None, None);
         builder
             .select("user.id")
             .select("user.name")
             .select("user.is_done");
-        builder.join("role", "role.id = user.role_id");
-        builder.join("location", "location.id = user.location_id");
+        builder.join(None, "role", "role.id = user.role_id");
+        builder.join(Some("LEFT"), "location", "location.id = user.location_id");
         builder.wheres("user.username", "=", Bind::String("Foo".to_string()));
         builder.wheres("user.id", "=", Bind::Int(1));
         builder.where_or(vec![
@@ -359,7 +221,7 @@ mod tests {
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(
             sql,
-            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id LEFT JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id"#
         );
         let answer = [
             Bind::String("Foo".to_string()),
