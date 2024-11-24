@@ -218,10 +218,12 @@ mod tests {
         }]);
         builder.order_by(vec!["user.id ASC"]);
         builder.group_by(vec!["user.id"]);
+        builder.limit(5);
+        builder.offset(10);
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(
             sql,
-            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id LEFT JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id LEFT JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id LIMIT 5 OFFSET 10"#
         );
         let answer = [
             Bind::String("Foo".to_string()),
