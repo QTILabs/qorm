@@ -1,6 +1,6 @@
 # QORM Docs
 
-- [sql select builder](./docs/select.md)
-- [sql insert builder](./docs/insert.md)
-- [sql update builder](./docs/update.md)
-- [sql delete builder](./docs/delete.md)
+- [sql select builder](./select.md)
+- [sql insert builder](./insert.md)
+- [sql update builder](./update.md)
+- [sql delete builder](./delete.md)
