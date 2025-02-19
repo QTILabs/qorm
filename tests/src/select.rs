@@ -199,6 +199,7 @@ mod tests {
         builder.join(Some("LEFT"), "location", "location.id = user.location_id");
         builder.wheres("user.username", "=", Bind::String("Foo".to_string()));
         builder.wheres("user.id", "=", Bind::Int(1));
+        builder.wheres("user.is_done", "IS NOT", Bind::Null);
         builder.where_or(vec![
             Or {
                 column: "user.id",
@@ -223,7 +224,7 @@ mod tests {
         let (sql, binds) = builder.to_sql_with_bind();
         assert_eq!(
             sql,
-            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id LEFT JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id LIMIT 5 OFFSET 10"#
+            r#"SELECT user.id, user.name, user.is_done FROM user user JOIN role ON role.id = user.role_id LEFT JOIN location ON location.id = user.location_id WHERE user.username = ? AND user.id = ? AND user.is_done IS NOT NULL AND ( user.id = ? OR user.is_active = ?) AND ( user.is_active = ?) ORDER BY user.id ASC GROUP BY user.id LIMIT 5 OFFSET 10"#
         );
         let answer = [
             Bind::String("Foo".to_string()),

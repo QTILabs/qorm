@@ -11,6 +11,7 @@ struct WhereInternal {
     pub value: Bind,
 }
 
+/// sql update builder
 pub struct Update {
     pub table_name: String,
     config: UpdateConfig,
@@ -22,6 +23,56 @@ pub struct Update {
 }
 
 impl Update {
+    /// Initialize Update builder
+    ///
+    /// simple init
+    /// ```rust
+    /// use qorm::{Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", None);
+    /// builder.set(vec![
+    ///     ("username", Bind::String("foo".to_string())),
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "UPDATE user SET username = ?,is_active = ? WHERE id = ?");
+    /// let x = vec![
+    ///     Bind::String("foo".to_string()),
+    ///     Bind::Bool(true),
+    ///     Bind::Int(1)
+    /// ];
+    /// assert_eq!(x.len(), binds.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
+    ///
+    /// override placeholder (default:?)
+    /// ```rust
+    /// use qorm::{update_item::UpdateConfig, Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", Some(UpdateConfig{
+    ///     placeholder: "$%d".to_string(),
+    ///     start: Some(1)
+    /// }));
+    /// builder.set(vec![
+    ///     ("username", Bind::String("foo".to_string())),
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "UPDATE user SET username = $1,is_active = $2 WHERE id = $3");
+    /// let x = vec![
+    ///     Bind::String("foo".to_string()),
+    ///     Bind::Bool(true),
+    ///     Bind::Int(1)
+    /// ];
+    /// assert_eq!(x.len(), binds.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn new(table_name: &str, config: Option<UpdateConfig>) -> Self {
         let config_select = match config {
             Some(data) => data,
@@ -58,6 +109,8 @@ impl Update {
         }
     }
 
+    /// sql update set
+    /// how to use see [`Update::new`]
     pub fn set(&mut self, value: Vec<(&str, Bind)>) -> &mut Self {
         if self.set_values.is_none() {
             self.set_values = Some(vec![]);
@@ -87,6 +140,26 @@ impl Update {
         }
     }
 
+    /// update sql where and
+    /// ```rust
+    /// use qorm::{Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", None);
+    /// builder.set(vec![
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "UPDATE user SET is_active = ? WHERE id = ?");
+    /// let x = vec![
+    ///     Bind::Bool(true),
+    ///     Bind::Int(1)
+    /// ];
+    /// assert_eq!(x.len(), binds.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn wheres(&mut self, column: &str, operator: &str, value: Bind) -> &mut Self {
         if self.where_and.is_none() {
             self.where_and = Some(vec![WhereInternal {
@@ -128,6 +201,38 @@ impl Update {
         }
     }
 
+    /// update sql where or
+    /// ```rust
+    /// use qorm::{where_item::Or, Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", None);
+    /// builder.set(vec![
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.where_or(vec![
+    ///     Or {
+    ///         column: "is_active",
+    ///         operator: "IS",
+    ///         value: Bind::Bool(false)
+    ///     },
+    ///     Or {
+    ///         column: "username",
+    ///         operator: "=",
+    ///         value: Bind::String("John".to_string())
+    ///     }
+    /// ]);
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "UPDATE user SET is_active = ? WHERE ( is_active IS ? OR username = ?)");
+    /// let x = vec![
+    ///     Bind::Bool(true),
+    ///     Bind::Bool(false),
+    ///     Bind::String("John".to_string()),
+    /// ];
+    /// assert_eq!(x.len(), binds.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn where_or(&mut self, wheres: Vec<Or>) -> &mut Self {
         if self.where_or.is_none() {
             self.where_or = Some(vec![wheres
@@ -187,6 +292,18 @@ impl Update {
         }
     }
 
+    /// get generated sql query
+    /// ```rust
+    /// use qorm::{Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", None);
+    /// builder.set(vec![
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let sql = builder.to_sql();
+    /// assert_eq!(sql, "UPDATE user SET is_active = ? WHERE id = ?");
+    /// ```
     pub fn to_sql(&mut self) -> String {
         self.binds = vec![];
         // Update
@@ -211,6 +328,26 @@ impl Update {
         sql
     }
 
+    /// get generated sql query and it's bind
+    /// ```rust
+    /// use qorm::{Bind, Update};
+    ///
+    /// let mut builder = Update::new("user", None);
+    /// builder.set(vec![
+    ///     ("is_active", Bind::Bool(true)),
+    /// ]);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "UPDATE user SET is_active = ? WHERE id = ?");
+    /// let x = vec![
+    ///     Bind::Bool(true),
+    ///     Bind::Int(1)
+    /// ];
+    /// assert_eq!(x.len(), binds.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn to_sql_with_bind(&mut self) -> (String, Vec<Bind>) {
         let sql = self.to_sql();
         (sql, self.binds.clone())

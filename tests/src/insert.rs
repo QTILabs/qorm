@@ -6,7 +6,6 @@ mod tests {
     fn insert_query() {
         let mut builder = Insert::new(
             "user",
-            None,
             Some(InsertConfig {
                 placeholder: "$%d".to_string(),
                 start: Some(1),

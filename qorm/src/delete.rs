@@ -11,6 +11,7 @@ struct WhereInternal {
     pub value: Bind,
 }
 
+/// sql delete builder
 pub struct Delete {
     pub table_name: String,
     config: DeleteConfig,
@@ -21,6 +22,38 @@ pub struct Delete {
 }
 
 impl Delete {
+    /// Initialize Delete builder
+    ///
+    /// simple init
+    /// ```rust
+    /// use qorm::{Bind, Delete};
+    ///
+    /// let mut builder = Delete::new("todo", None);
+    /// assert_eq!(builder.to_sql(), "DELETE FROM todo".to_string());
+    /// ```
+    ///
+    /// override placeholder (default:?)
+    /// ```
+    /// use qorm::{delete_item::DeleteConfig, Bind, Delete};
+    ///
+    /// let mut builder = Delete::new(
+    ///     "todo",
+    ///     Some(DeleteConfig {
+    ///         placeholder: "$%d".to_string(),
+    ///         start: Some(1)
+    ///     })
+    /// );
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(
+    ///     sql, "DELETE FROM todo WHERE id = $1"
+    /// );
+    /// let x = vec![Bind::Int(1)];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn new(table_name: &str, config: Option<DeleteConfig>) -> Self {
         let config_select = match config {
             Some(data) => data,
@@ -56,6 +89,20 @@ impl Delete {
         }
     }
 
+    /// sql delete where and
+    /// ```rust
+    /// use qorm::{Bind, Delete};
+    ///
+    /// let mut builder = Delete::new("todo", None);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "DELETE FROM todo WHERE id = ?");
+    /// let x = vec![Bind::Int(1)];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn wheres(&mut self, column: &str, operator: &str, value: Bind) -> &mut Self {
         if self.where_and.is_none() {
             self.where_and = Some(vec![WhereInternal {
@@ -97,6 +144,31 @@ impl Delete {
         }
     }
 
+    /// sql delete where or
+    /// ```rust
+    /// use qorm::{where_item::Or, Bind, Delete};
+    ///
+    /// let mut builder = Delete::new("todo", None);
+    /// builder.where_or(vec![
+    ///     Or {
+    ///         column: "id",
+    ///         operator: "=",
+    ///         value: Bind::Int(1)
+    ///     },
+    ///     Or {
+    ///         column: "id",
+    ///         operator: "=",
+    ///         value: Bind::Int(2)
+    ///     }
+    /// ]);
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "DELETE FROM todo WHERE ( id = ? OR id = ?)");
+    /// let x = vec![Bind::Int(1), Bind::Int(2)];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn where_or(&mut self, wheres: Vec<Or>) -> &mut Self {
         if self.where_or.is_none() {
             self.where_or = Some(vec![wheres
@@ -156,6 +228,13 @@ impl Delete {
         }
     }
 
+    /// get generated sql query
+    /// ```rust
+    /// use qorm::{Bind, Delete};
+    ///
+    /// let mut builder = Delete::new("todo", None);
+    /// assert_eq!(builder.to_sql(), "DELETE FROM todo");
+    /// ```
     pub fn to_sql(&mut self) -> String {
         self.binds = vec![];
         // DELETE
@@ -177,6 +256,20 @@ impl Delete {
         sql
     }
 
+    /// get generated sql query and it's bind
+    /// ```rust
+    /// use qorm::{Bind, Delete};
+    ///
+    /// let mut builder = Delete::new("todo", None);
+    /// builder.wheres("id", "=", Bind::Int(1));
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(sql, "DELETE FROM todo WHERE id = ?");
+    /// let x = vec![Bind::Int(1)];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
     pub fn to_sql_with_bind(&mut self) -> (String, Vec<Bind>) {
         let sql = self.to_sql();
         (sql, self.binds.clone())
