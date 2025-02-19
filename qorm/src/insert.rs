@@ -4,6 +4,9 @@ fn is_index(pattern: String) -> bool {
     pattern.contains("%d")
 }
 
+/// Insert
+///
+/// qorm sql insert builder
 pub struct Insert {
     pub table_name: Table,
     config: InsertConfig,
@@ -13,7 +16,59 @@ pub struct Insert {
 }
 
 impl Insert {
-    pub fn new(table_name: &str, alias: Option<&str>, config: Option<InsertConfig>) -> Self {
+    /// Initialize Insert builder
+    ///
+    /// simple init
+    /// ```rust
+    /// use qorm::{Bind, Insert};
+    ///
+    /// let mut builder = Insert::new("user", None);
+    /// builder.values(vec![
+    ///     ("username", Bind::String("foo".to_string())),
+    ///     ("is_active", Bind::Bool(true))
+    /// ]);
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(
+    ///     sql,
+    ///     "INSERT INTO user (username,is_active) VALUES (?,?)"
+    /// );
+    /// let x = [
+    ///     Bind::String("foo".to_string()),
+    ///     Bind::Bool(true)
+    /// ];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
+    ///
+    /// override placeholder
+    /// ```rust
+    /// use qorm::{insert_item::InsertConfig, Bind, Insert};
+    ///
+    /// let mut builder = Insert::new("user", Some(InsertConfig {
+    ///     placeholder: "$%d".to_string(),
+    ///     start: Some(1),
+    /// }));
+    /// builder.values(vec![
+    ///     ("username", Bind::String("foo".to_string())),
+    ///     ("is_active", Bind::Bool(true))
+    /// ]);
+    /// let (sql, binds) = builder.to_sql_with_bind();
+    /// assert_eq!(
+    ///     sql,
+    ///     "INSERT INTO user (username,is_active) VALUES ($1,$2)"
+    /// );
+    /// let x = [
+    ///     Bind::String("foo".to_string()),
+    ///     Bind::Bool(true)
+    /// ];
+    /// assert_eq!(binds.len(), x.len());
+    /// for idx in 0..binds.len() {
+    ///     assert_eq!(binds[idx], x[idx]);
+    /// }
+    /// ```
+    pub fn new(table_name: &str, config: Option<InsertConfig>) -> Self {
         let config_select = match config {
             Some(data) => data,
             None => InsertConfig {
@@ -25,7 +80,7 @@ impl Insert {
         Self {
             table_name: Table {
                 name: table_name.to_string(),
-                alias: alias.map(|x| x.to_string()),
+                alias: None,
             },
             config: config_select.clone(),
             bind_index: match bind_index {
@@ -50,6 +105,9 @@ impl Insert {
         }
     }
 
+    /// sql insert values
+    ///
+    /// how to use see [`Insert::new`]
     pub fn values(&mut self, value: Vec<(&str, Bind)>) -> &mut Self {
         if self.insert_values.is_none() {
             self.insert_values = Some(vec![]);
@@ -87,6 +145,9 @@ impl Insert {
         sql.push_str(&values);
     }
 
+    /// get generated sql query
+    ///
+    /// how to use see [`Insert::new`]
     pub fn to_sql(&mut self) -> String {
         self.binds = vec![];
         // Insert
@@ -95,6 +156,9 @@ impl Insert {
         sql
     }
 
+    /// get generated sql query and it's bind
+    ///
+    /// how to use see [`Insert::new`]
     pub fn to_sql_with_bind(&mut self) -> (String, Vec<Bind>) {
         let sql = self.to_sql();
         (sql, self.binds.clone())
